@@ -33,14 +33,11 @@ private class RunningEventThread(private val userEvent: UserEvent): Thread("even
     
     override fun run() {
         val guildInfo = joinedGuilds[userEvent.guild]!!
-        val eventStartMessage = if(!userEvent.pinged) {
+        val eventStartMessage = userEvent.pingMessage ?: run {
             val eventStartMessage = guildInfo.eventChannel?.sendMessage("${userEvent.role.asMention} ${userEvent.title} is now starting")?.complete()
-            userEvent.pinged = true
+            userEvent.pingMessage = eventStartMessage
             userEvent.saveEvent()
             eventStartMessage
-        }
-        else {
-            guildInfo.eventChannel?.iterableHistory?.firstOrNull {userEvent.role in it.mentionedRoles}
         }
         
         val remaining = Duration.between(LocalDateTime.now(), userEvent.startingTime + userEvent.duration)

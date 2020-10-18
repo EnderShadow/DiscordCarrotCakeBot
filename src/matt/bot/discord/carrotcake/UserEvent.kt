@@ -10,7 +10,7 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
-class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var title: String, var details: String, var pinged: Boolean = false, val uuid: UUID = UUID.randomUUID()) {
+class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var title: String, var details: String, var pingMessage: Message? = null, val uuid: UUID = UUID.randomUUID()) {
     companion object {
         fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration): MessageEmbed {
             val embedBuilder = EmbedBuilder()
@@ -64,7 +64,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
         eventData.put("details", details)
         eventData.put("channelId", message.channel.id)
         eventData.put("messageId", message.id)
-        eventData.put("pinged", pinged)
+        eventData.put("pingMessageId", pingMessage?.id ?: JSONObject.NULL)
         
         file.writeText(eventData.toString(4))
     }

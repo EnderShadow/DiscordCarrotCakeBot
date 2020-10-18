@@ -115,15 +115,16 @@ class UtilityListener: ListenerAdapter()
                 val duration = Duration.parse(eventData.getString("duration"))
                 val title = eventData.getString("title")
                 val details = eventData.getString("details")
-                val pinged = eventData.getBoolean("pinged")
     
                 val textChannel = event.jda.getTextChannelById(eventData.getString("channelId"))
                 val message = textChannel?.retrieveMessageById(eventData.getString("messageId"))?.complete()
+                val pingMessage = eventData.getStringOrNull("pingMessageId")?.let {textChannel?.retrieveMessageById(it)?.complete()}
                 
                 if(start + duration <= LocalDateTime.now()) {
                     println("Event has already ended. Cleaning up.")
                     file.delete()
                     message?.delete()?.queue()
+                    pingMessage?.delete()?.queue()
                     val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
                     if(guildInfo != null) {
                         val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
@@ -133,6 +134,7 @@ class UtilityListener: ListenerAdapter()
                 else if(message == null) {
                     System.err.println("Failed to retrieve message from discord servers. Event is no longer valid. Cleaning up.")
                     file.delete()
+                    pingMessage?.delete()?.queue()
                     val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
                     if(guildInfo != null) {
                         val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
@@ -140,7 +142,7 @@ class UtilityListener: ListenerAdapter()
                     }
                 }
                 else {
-                    events.add(UserEvent(message, start, duration, title, details, pinged, uuid))
+                    events.add(UserEvent(message, start, duration, title, details, pingMessage, uuid))
                 }
             }
         }
