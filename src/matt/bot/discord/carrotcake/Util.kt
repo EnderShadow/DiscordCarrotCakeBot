@@ -5,6 +5,8 @@ import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.Message
 import org.json.JSONObject
+import java.time.Duration
+import java.time.LocalDateTime
 
 fun countMentions(message: Message) = message.mentionedChannels.size + message.mentionedRoles.size + message.mentionedUsers.size + if(message.mentionsEveryone()) 1 else 0
 
@@ -94,4 +96,45 @@ fun String.containsSparse(text: String): Boolean
             return false
     }
     return true
+}
+
+fun prettyPrintDate(localDateTime: LocalDateTime): String {
+    return "${localDateTime.month.name.toLowerCase().capitalize()} ${localDateTime.dayOfMonth}, ${localDateTime.year}, at ${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')} CDT"
+}
+
+fun prettyPrintDuration(duration: Duration): String {
+    val hours = duration.toHours()
+    val minutes = duration.toMinutes() - 60 * hours
+    
+    val hourStr = when {
+        hours > 1 -> "$hours hours"
+        hours == 1L -> "1 hour"
+        else -> ""
+    }
+    
+    val minuteStr = when {
+        minutes > 1 -> "$minutes minutes"
+        minutes == 1L -> "1 minute"
+        else -> ""
+    }
+    
+    return if(hourStr.isNotBlank() && minuteStr.isNotBlank())
+        "$hourStr and $minuteStr"
+    else if(hourStr.isNotBlank())
+        hourStr
+    else if(minuteStr.isNotBlank())
+        minuteStr
+    else
+        "0 minutes"
+}
+
+fun splitAt2000(text: String): List<String>
+{
+    if(text.length <= 2000)
+        return listOf(text)
+    val splitIndex = text.lastIndexOf('\n', 2000).takeIf {it >= 0} ?: text.lastIndexOf(' ', 2000)
+    return if(splitIndex < 0)
+        listOf(text.substring(0, 2000)) + splitAt2000(text.substring(2000))
+    else
+        listOf(text.substring(0, splitIndex)) + splitAt2000(text.substring(splitIndex))
 }

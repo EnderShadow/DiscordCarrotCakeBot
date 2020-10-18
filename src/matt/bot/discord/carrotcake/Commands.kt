@@ -1,6 +1,10 @@
 package matt.bot.discord.carrotcake
 
-import net.dv8tion.jda.api.entities.*
+import net.dv8tion.jda.api.entities.Message
+import net.dv8tion.jda.api.entities.Role
+import net.dv8tion.jda.api.entities.TextChannel
+import java.time.Duration
+import java.time.LocalDateTime
 
 fun runCommand(command: String, tokenizer: Tokenizer, sourceMessage: Message)
 {
@@ -68,6 +72,271 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             else
             {
                 sourceMessage.channel.sendMessage("I can't say blank messages").queue()
+            }
+        }
+    }
+    
+    class Config: Command("config", true) {
+        override fun helpMessage() = """`${botPrefix}say` __Allows you to configure the bot__
+            |
+            |**Usage:** ${botPrefix}config list
+            |              ${botPrefix}config get [option]
+            |              ${botPrefix}config set [option] [value]
+            |
+            |**Examples:**
+            |`${botPrefix}config list` lists all the configuration options and their values
+            |`${botPrefix}config get eventChannel` display the currently set channel for events
+            |`${botPrefix}config set eventChannel #channelHere` sets the event channel to #channelHere
+        """.trimMargin()
+    
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message)
+        {
+            val mode = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+            val guildInfo = joinedGuilds[sourceMessage.guild]!!
+            when(mode) {
+                "list" -> {
+                    val message = """eventManagerRole: ${guildInfo.eventManagerRole?.asMention ?: "none"}
+                        |eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}
+                    """.trimMargin()
+                    
+                    sourceMessage.channel.sendMessage(message).allowedMentions(emptyList()).queue()
+                }
+                "get" -> {
+                    val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val message = when(option) {
+                        "eventManagerRole" -> {
+                            "eventManagerRole: ${guildInfo.eventManagerRole?.asMention ?: "none"}"
+                        }
+                        "eventChannel" -> {
+                            "eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}"
+                        }
+                        else -> return
+                    }
+                    
+                    sourceMessage.channel.sendMessage(message).allowedMentions(emptyList()).queue()
+                }
+                "set" -> {
+                    val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val newValue = if(tokenizer.hasNext()) tokenizer.next() else return
+                    when(option) {
+                        "eventManagerRole" -> {
+                            if(newValue.tokenType != TokenType.ROLE) {
+                                sourceMessage.channel.sendMessage("The new value for eventManagerRole must be a role").queue()
+                            }
+                            else {
+                                guildInfo.eventManagerRole = newValue.objValue as Role
+                                save()
+                                sourceMessage.channel.sendMessage("eventManagerRole was successfully updated").queue()
+                            }
+                        }
+                        "eventChannel" -> {
+                            if(newValue.tokenType != TokenType.TEXT_CHANNEL) {
+                                sourceMessage.channel.sendMessage("The new value for eventManagerRole must be a text channel").queue()
+                            }
+                            else {
+                                guildInfo.eventChannel = newValue.objValue as TextChannel
+                                save()
+                                sourceMessage.channel.sendMessage("eventChannel was successfully updated").queue()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    class Admin: Command("admin", true)
+    {
+        override fun helpMessage() = """`l!admin` __Used for managing who can administrate the bot__
+            |
+            |**Usage:** l!admin list
+            |              l!admin add [role] ...
+            |              l!admin remove [role] ...
+            |
+            |The server owner can always administrate the bot
+            |
+            |**Examples:**
+            |`l!admin list` lists the roles that can currently manage the bot
+            |`l!admin add @Admin @Moderator` adds the @Admin and @Moderator role to the list of roles that can administrate the bot
+        """.trimMargin()
+        
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message)
+        {
+            if(tokenizer.hasNext())
+            {
+                val guildInfo = joinedGuilds[sourceMessage.guild]!!
+                when(tokenizer.next().tokenValue)
+                {
+                    "list" -> {
+                        if(guildInfo.serverAdminRoles.isNotEmpty())
+                            sourceMessage.channel.sendMessage(guildInfo.serverAdminRoles.joinToString(" ") {it.asMention}).allowedMentions(emptyList()).queue()
+                        else
+                            sourceMessage.channel.sendMessage("No roles are registered as a bot admin").queue()
+                    }
+                    "add" -> {
+                        if(tokenizer.hasNext())
+                        {
+                            guildInfo.serverAdminRoles.addAll(tokenizer.asSequence().filter {it.tokenType == TokenType.ROLE}.mapNotNull {sourceMessage.guild.getRoleById(it.tokenValue)})
+                            save()
+                        }
+                    }
+                    "remove" -> {
+                        if(guildInfo.serverAdminRoles.removeAll(tokenizer.asSequence().filter {it.tokenType == TokenType.ROLE}.mapNotNull {sourceMessage.guild.getRoleById(it.tokenValue)}))
+                            save()
+                    }
+                }
+            }
+        }
+    }
+    
+    class ClearRoles: Command("clearRoles", true) {
+        override fun helpMessage() = """`l!clearRoles` __Used for clearing roles created by the bot__
+            |
+            |**Usage:** l!clearRoles
+            |
+            |**Examples:**
+            |`l!clearRoles` clears all unused roles created by this bot
+        """.trimMargin()
+    
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message)
+        {
+            val guildInfo = joinedGuilds[sourceMessage.guild]!!
+            val roles = guildInfo.guild.roles.filter {it.name.matches(Regex("^.*[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"))}.toMutableList()
+            roles.removeIf {role ->
+                synchronized(eventLock) {
+                    events.any {it.role == role}
+                }
+            }
+            roles.forEach {it.delete().queue()}
+            sourceMessage.channel.sendMessage("Deleted all unused roles created by the bot").queue()
+        }
+    }
+    
+    class Event: Command("event", true) {
+        override fun helpMessage() = """`${botPrefix}help` __Used for managing events__
+            |
+            |**Usage:** ${botPrefix}event list
+            |              ${botPrefix}event create [title] [start date] [duration] [event details]
+            |              ${botPrefix}event edit [title] [options...]
+            |              ${botPrefix}event delete [title]
+            |
+            |**NOTE**
+            |Dates and durations are specified using ISO 8601 which can be found here: https://en.wikipedia.org/wiki/ISO_8601
+            |
+            |**Editing options**
+            |You can use any combination of the following for editing events
+            |   title [new title]
+            |   start [new start date]
+            |   duration [new duration]
+            |   details [new event details]
+            |
+            |**Examples:**
+            |`${botPrefix}event list` lists all current events sorted by their start date
+            |`${botPrefix}event create "A Movie" 2020-10-16T19:30 PT2H Watch this great movie` creates an event titled 'A Movie' which starts on October 16, 2020, lasts 2 hours, and has the description 'Watch this great movie'
+            |`${botPrefix}event edit "A Movie" title "A Great Movie" details "A better description"` edits the event titled 'A Movie' and sets the title to 'A Great Movie' and changes the description to 'A better description'
+            |`${botPrefix}event delete A Great Movie` deletes the event titled 'A Great Movie'
+        """.trimMargin()
+    
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
+            val mode = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+            when(mode) {
+                "list" -> {
+                    synchronized(eventLock) {
+                        if(events.isEmpty()) {
+                            sourceMessage.channel.sendMessage("There are currently no events").queue()
+                        }
+                        else {
+                            val message = events.joinToString("\n") {
+                                "'${it.title}' starting on ${prettyPrintDate(it.startingTime)} and lasting ${prettyPrintDuration(it.duration)}"
+                            }
+                            splitAt2000(message).forEach {
+                                sourceMessage.channel.sendMessage(it).queue()
+                            }
+                        }
+                    }
+                }
+                "create" -> {
+                    val title = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val startStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val durationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val details = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.rawValue else return
+                    
+                    val start = LocalDateTime.parse(startStr)
+                    val duration = Duration.parse(durationStr)
+                    
+                    val embed = UserEvent.createEmbed(title, details, start, duration)
+                    
+                    joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
+                        it.addReaction(eventEmote).queue()
+                        val event = UserEvent(it, start, duration, title, details)
+                        event.saveEvent()
+                        synchronized(eventLock) {
+                            events.add(event)
+                        }
+                    }
+                }
+                "edit" -> {
+                    val currentTitle = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    var newTitle: String? = null
+                    var newDetails: String? = null
+                    var newStart: LocalDateTime? = null
+                    var newDuration: Duration? = null
+                    
+                    while(tokenizer.hasNext()) {
+                        when(tokenizer.next().rawValue) {
+                            "title" -> {
+                                newTitle = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                            }
+                            "details" -> {
+                                newDetails = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                            }
+                            "start" -> {
+                                val newStartStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                newStart = LocalDateTime.parse(newStartStr)
+                            }
+                            "duration" -> {
+                                val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                newDuration = Duration.parse(newDurationStr)
+                            }
+                        }
+                    }
+                    
+                    val needToUpdateRole = newTitle != null
+                    val needToUpdateEmbed = newTitle != null || newDetails != null || newStart != null || newDuration != null
+                    
+                    synchronized(eventLock) {
+                        val event = events.firstOrNull {it.title == currentTitle}
+                        if(event != null) {
+                            if(newTitle != null)
+                                event.title = newTitle
+                            if(newDetails != null)
+                                event.details = newDetails
+                            if(newStart != null)
+                                event.startingTime = newStart
+                            if(newDuration != null)
+                                event.duration = newDuration
+                            
+                            if(needToUpdateRole)
+                                event.updateRole()
+                            if(needToUpdateEmbed)
+                                event.updateEmbed()
+                        }
+                    }
+                    
+                    sourceMessage.channel.sendMessage("Event has been updated").queue()
+                }
+                "delete" -> {
+                    val title = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.rawValue else return
+                    synchronized(eventLock) {
+                        events.filter {it.title == title}.forEach {
+                            events.remove(it)
+                            it.role.delete().queue()
+                            it.message.delete().queue()
+                            it.file.delete()
+                        }
+                    }
+                    sourceMessage.channel.sendMessage("Events with the title '$title' have been removed").queue()
+                }
             }
         }
     }

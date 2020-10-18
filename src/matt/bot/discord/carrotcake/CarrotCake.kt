@@ -15,16 +15,24 @@ import net.dv8tion.jda.api.requests.GatewayIntent
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.time.Duration
+import java.time.LocalDateTime
+import java.util.*
 import kotlin.system.exitProcess
 
 lateinit var bot: JDA
     private set
 
 const val botPrefix = "cc!"
+const val eventEmote = "✅"
 
 val saveFile = File("saveData.json")
+val eventDir = File("events")
 
 val joinedGuilds = mutableMapOf<Guild, GuildInfo>()
+val events = PriorityQueue<UserEvent>{ue1, ue2 -> ue1.startingTime.compareTo(ue2.startingTime)}
+val eventThread = EventThread()
+val eventLock = Any()
 
 var shutdownMode = ExitMode.SHUTDOWN
 
@@ -59,6 +67,7 @@ fun save()
         guildJson.put("id", guildInfo.guild.id)
         guildJson.put("adminRoles", JSONArray(guildInfo.serverAdminRoles.map {it.id}))
         guildJson.put("eventManagerRole", guildInfo.eventManagerRole?.id ?: JSONObject.NULL)
+        guildJson.put("eventChannel", guildInfo.eventChannel?.id ?: JSONObject.NULL)
     })
     
     saveFile.writeText(saveData.toString(4))
@@ -71,6 +80,8 @@ class UtilityListener: ListenerAdapter()
         event.jda.isAutoReconnect = true
         println("Logged in as ${event.jda.selfUser.name}\n${event.jda.selfUser.id}\n-----------------------------")
         event.jda.presence.activity = Activity.playing("cc!help for a list of commands")
+        
+        // start loading guild data
         
         event.jda.guilds.forEach {joinedGuilds.putIfAbsent(it, GuildInfo(it))}
     
@@ -86,8 +97,57 @@ class UtilityListener: ListenerAdapter()
                 
                 guildInfo.serverAdminRoles.addAll(guildData.getJSONArray("adminRoles").mapNotNull {guildInfo.guild.getRoleById(it as String)})
                 guildInfo.eventManagerRole = guildData.getStringOrNull("eventManagerRole")?.let {guildInfo.guild.getRoleById(it)}
+                guildInfo.eventChannel = guildData.getStringOrNull("eventChannel")?.let {guildInfo.guild.getTextChannelById(it)}
             }
         }
+        
+        // done loading guild data
+        
+        // start loading event data
+        
+        eventDir.mkdirs()
+        eventDir.listFiles()?.run {
+            asSequence().forEach {file ->
+                val eventData = JSONObject(file.readText())
+                val uuidStr = eventData.getString("uuid")
+                val uuid = UUID.fromString(uuidStr)
+                val start = LocalDateTime.parse(eventData.getString("start"))
+                val duration = Duration.parse(eventData.getString("duration"))
+                val title = eventData.getString("title")
+                val details = eventData.getString("details")
+                val pinged = eventData.getBoolean("pinged")
+    
+                val textChannel = event.jda.getTextChannelById(eventData.getString("channelId"))
+                val message = textChannel?.retrieveMessageById(eventData.getString("messageId"))?.complete()
+                
+                if(start + duration <= LocalDateTime.now()) {
+                    println("Event has already ended. Cleaning up.")
+                    file.delete()
+                    message?.delete()?.queue()
+                    val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
+                    if(guildInfo != null) {
+                        val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
+                        role?.delete()?.queue()
+                    }
+                }
+                else if(message == null) {
+                    System.err.println("Failed to retrieve message from discord servers. Event is no longer valid. Cleaning up.")
+                    file.delete()
+                    val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
+                    if(guildInfo != null) {
+                        val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
+                        role?.delete()?.queue()
+                    }
+                }
+                else {
+                    events.add(UserEvent(message, start, duration, title, details, pinged, uuid))
+                }
+            }
+        }
+        
+        // done loading event data
+        
+        eventThread.start()
     }
     
     override fun onGuildJoin(event: GuildJoinEvent) {
@@ -124,10 +184,22 @@ class MessageListener: ListenerAdapter()
     }
     
     override fun onGuildMessageReactionAdd(event: GuildMessageReactionAddEvent) {
-        super.onGuildMessageReactionAdd(event)
+        if(event.user.isBot)
+            return
+        synchronized(eventLock) {
+            val role = events.firstOrNull {it.message.id == event.messageId}?.role
+            if(role != null)
+                event.guild.addRoleToMember(event.member, role).queue()
+        }
     }
     
     override fun onGuildMessageReactionRemove(event: GuildMessageReactionRemoveEvent) {
-        super.onGuildMessageReactionRemove(event)
+        if(event.user?.isBot != false)
+            return
+        synchronized(eventLock) {
+            val role = events.firstOrNull {it.message.id == event.messageId}?.role
+            if(role != null && event.member != null)
+                event.guild.removeRoleFromMember(event.member!!, role).queue()
+        }
     }
 }

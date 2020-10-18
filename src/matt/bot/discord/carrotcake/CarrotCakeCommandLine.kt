@@ -1,7 +1,6 @@
 package matt.bot.discord.carrotcake
 
 import net.dv8tion.jda.api.JDA
-import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.entities.*
 import net.dv8tion.jda.api.requests.RestAction
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction
@@ -117,7 +116,7 @@ fun commandLine(bot: JDA)
                 if(selectedTextChannel == null)
                     println("Select a text channel first")
                 else
-                    MessageBuilder(tokenizer.remainingTextAsToken.tokenValue).sendTo(selectedTextChannel!!).queue()
+                    selectedTextChannel!!.sendMessage(tokenizer.remainingTextAsToken.tokenValue).queue()
             }
             "sudo" -> {
                 if(selectedGuild == null)
@@ -139,7 +138,7 @@ fun commandLine(bot: JDA)
                         val messageFile = File("pulledMessages/$id")
                         messageFile.parentFile.mkdirs()
                         messageFile.writeText(message.contentRaw)
-                        println("Seccessfully pulled message")
+                        println("Successfully pulled message")
                     }
                     else
                     {
@@ -203,8 +202,8 @@ private class CommandLineMessage(private val guild: Guild, private val member: M
     override fun clearReactions(): RestAction<Void> = FakeAuditableRestAction()
     override fun clearReactions(emote: String): RestAction<Void> = FakeAuditableRestAction()
     override fun clearReactions(emote: Emote): RestAction<Void> = FakeAuditableRestAction()
-    override fun getReactionById(id: String) = null
-    override fun getReactionById(id: Long) = null
+    override fun getReactionById(id: String): MessageReaction.ReactionEmote? = null
+    override fun getReactionById(id: Long): MessageReaction.ReactionEmote? = null
     override fun formatTo(p0: Formatter?, p1: Int, p2: Int, p3: Int) {}
     override fun getContentRaw() = text
     override fun getContentStripped() = text
@@ -228,13 +227,15 @@ private class CommandLineMessage(private val guild: Guild, private val member: M
     override fun removeReaction(unicode: String) = FakeAuditableRestAction<Void>()
     override fun removeReaction(unicode: String, user: User) = FakeAuditableRestAction<Void>()
     override fun suppressEmbeds(suppressed: Boolean) = FakeAuditableRestAction<Void>()
+    override fun crosspost() = FakeAuditableRestAction<Message>()
+    
     override fun getMentionedMembers(guild: Guild) = mutableListOf<Member>()
     override fun getMentionedMembers() = mutableListOf<Member>()
     override fun unpin(): RestAction<Void> = FakeAuditableRestAction()
     override fun getCategory(): Category? = null
     override fun getInvites() = mutableListOf<String>()
     override fun getTimeEdited(): OffsetDateTime = OffsetDateTime.MAX
-    override fun getReactionByUnicode(unicode: String) = null
+    override fun getReactionByUnicode(unicode: String): MessageReaction.ReactionEmote? = null
     override fun getMentionedUsers() = mutableListOf<User>()
     override fun getMentionedRolesBag() = BagUtils.emptyBag<Role>()
     override fun getEmotes() = mutableListOf<Emote>()
@@ -317,6 +318,10 @@ private class FakeMessageAction(private val textChannel: TextChannel?): MessageA
     override fun nonce(nonce: String?) = this
     override fun apply(message: Message?) = this
     override fun override(bool: Boolean) = this
+    override fun allowedMentions(p0: MutableCollection<Message.MentionType>?) = this
+    override fun mention(vararg p0: IMentionable?) = this
+    override fun mentionUsers(vararg p0: String?) = this
+    override fun mentionRoles(vararg p0: String?) = this
     
     override fun queue(success: Consumer<in Message>?, failure: Consumer<in Throwable>?) {
         failure?.accept(UnsupportedOperationException())
