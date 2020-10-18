@@ -26,7 +26,7 @@ class EventThread: Thread("discord-user-event-thread") {
     }
 }
 
-private class RunningEventThread(private val userEvent: UserEvent): Thread("event-delete-thread") {
+private class RunningEventThread(private val userEvent: UserEvent): Thread("event-delete-thread-${userEvent.uuid}") {
     init {
         isDaemon = true
     }
