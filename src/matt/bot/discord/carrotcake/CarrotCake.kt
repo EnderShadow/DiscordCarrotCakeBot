@@ -64,7 +64,7 @@ fun save()
     val saveData = JSONArray(joinedGuilds.values.map {guildInfo ->
         val guildJson = JSONObject()
         
-        guildJson.put("id", guildInfo.guild.id)
+        guildJson.put("guildId", guildInfo.guild.id)
         guildJson.put("adminRoles", JSONArray(guildInfo.serverAdminRoles.map {it.id}))
         guildJson.put("eventManagerRole", guildInfo.eventManagerRole?.id ?: JSONObject.NULL)
         guildJson.put("eventChannel", guildInfo.eventChannel?.id ?: JSONObject.NULL)
@@ -91,7 +91,7 @@ class UtilityListener: ListenerAdapter()
         val saveData = JSONArray(saveFile.readText())
         saveData.forEach {guildDataObj ->
             val guildData = guildDataObj as JSONObject
-            val guild = event.jda.getGuildById(guildData.getString("id"))
+            val guild = event.jda.getGuildById(guildData.getString("guildId"))
             if(guild != null) {
                 val guildInfo = joinedGuilds.getOrPut(guild) {GuildInfo(guild)}
                 
