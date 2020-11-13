@@ -1,10 +1,10 @@
 package matt.bot.discord.carrotcake
 
 import net.dv8tion.jda.api.entities.Message
-import net.dv8tion.jda.api.entities.Role
 import net.dv8tion.jda.api.entities.TextChannel
 import java.time.Duration
 import java.time.LocalDateTime
+import java.util.*
 
 fun runCommand(command: String, tokenizer: Tokenizer, sourceMessage: Message)
 {
@@ -95,18 +95,13 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             val guildInfo = joinedGuilds[sourceMessage.guild]!!
             when(mode) {
                 "list" -> {
-                    val message = """eventManagerRole: ${guildInfo.eventManagerRole?.asMention ?: "none"}
-                        |eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}
-                    """.trimMargin()
+                    val message = "eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}"
                     
                     sourceMessage.channel.sendMessage(message).allowedMentions(emptyList()).queue()
                 }
                 "get" -> {
                     val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
                     val message = when(option) {
-                        "eventManagerRole" -> {
-                            "eventManagerRole: ${guildInfo.eventManagerRole?.asMention ?: "none"}"
-                        }
                         "eventChannel" -> {
                             "eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}"
                         }
@@ -119,16 +114,6 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
                     val newValue = if(tokenizer.hasNext()) tokenizer.next() else return
                     when(option) {
-                        "eventManagerRole" -> {
-                            if(newValue.tokenType != TokenType.ROLE) {
-                                sourceMessage.channel.sendMessage("The new value for eventManagerRole must be a role").queue()
-                            }
-                            else {
-                                guildInfo.eventManagerRole = newValue.objValue as Role
-                                save()
-                                sourceMessage.channel.sendMessage("eventManagerRole was successfully updated").queue()
-                            }
-                        }
                         "eventChannel" -> {
                             if(newValue.tokenType != TokenType.TEXT_CHANNEL) {
                                 sourceMessage.channel.sendMessage("The new value for eventManagerRole must be a text channel").queue()
@@ -217,8 +202,9 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             |
             |**Usage:** ${botPrefix}event list
             |              ${botPrefix}event create [title] [start date] [duration] [event details]
-            |              ${botPrefix}event edit [title] [options...]
-            |              ${botPrefix}event delete [title]
+            |              ${botPrefix}event edit [uuid] [options...]
+            |              ${botPrefix}event delete [uuid]
+            |              ${botPrefix}event refreshEmbed [uuid]
             |
             |**NOTE**
             |Dates and durations are specified using ISO 8601 which can be found here: https://en.wikipedia.org/wiki/ISO_8601
@@ -233,8 +219,9 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             |**Examples:**
             |`${botPrefix}event list` lists all current events sorted by their start date
             |`${botPrefix}event create "A Movie" 2020-10-16T19:30 PT2H Watch this great movie` creates an event titled 'A Movie' which starts on October 16, 2020, lasts 2 hours, and has the description 'Watch this great movie'
-            |`${botPrefix}event edit "A Movie" title "A Great Movie" details "A better description"` edits the event titled 'A Movie' and sets the title to 'A Great Movie' and changes the description to 'A better description'
-            |`${botPrefix}event delete A Great Movie` deletes the event titled 'A Great Movie'
+            |`${botPrefix}event edit 00000000-0000-0000-0000-000000000000 title "A Great Movie" details "A better description"` edits the event with uuid 00000000-0000-0000-0000-000000000000 and sets the title to 'A Great Movie' and changes the description to 'A better description'
+            |`${botPrefix}event delete 00000000-0000-0000-0000-000000000000` deletes the event with uuid 00000000-0000-0000-0000-000000000000
+            |`${botPrefix}event refreshEmbed 00000000-0000-0000-0000-000000000000` updates the embed for the event with uuid 00000000-0000-0000-0000-000000000000
         """.trimMargin()
     
         override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
@@ -247,7 +234,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                         }
                         else {
                             val message = events.joinToString("\n") {
-                                "'${it.title}' starting on ${prettyPrintDate(it.startingTime)} and lasting ${prettyPrintDuration(it.duration)}"
+                                "`${it.uuid}`: '${it.title}' starting on ${prettyPrintDate(it.startingTime)} and lasting ${prettyPrintDuration(it.duration)}"
                             }
                             splitAt2000(message).forEach {
                                 sourceMessage.channel.sendMessage(it).queue()
@@ -264,11 +251,12 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     val start = LocalDateTime.parse(startStr)
                     val duration = Duration.parse(durationStr)
                     
-                    val embed = UserEvent.createEmbed(title, details, start, duration)
+                    val uuid = UUID.randomUUID()
+                    val embed = UserEvent.createEmbed(title, details, start, duration, uuid)
                     
                     joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
                         it.addReaction(eventEmote).queue()
-                        val event = UserEvent(it, start, duration, title, details)
+                        val event = UserEvent(it, start, duration, title, details, uuid)
                         event.saveEvent()
                         synchronized(eventLock) {
                             events.add(event)
@@ -276,7 +264,10 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     }
                 }
                 "edit" -> {
-                    val currentTitle = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val uuid = if(tokenizer.hasNext()) tokenizer.next().objValue else return
+                    if(uuid !is UUID)
+                        return
+                    
                     var newTitle: String? = null
                     var newDetails: String? = null
                     var newStart: LocalDateTime? = null
@@ -305,7 +296,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     val needToUpdateEmbed = newTitle != null || newDetails != null || newStart != null || newDuration != null
                     
                     synchronized(eventLock) {
-                        val event = events.firstOrNull {it.title == currentTitle}
+                        val event = events.firstOrNull {it.uuid == uuid}
                         if(event != null) {
                             if(newTitle != null)
                                 event.title = newTitle
@@ -320,22 +311,37 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                                 event.updateRole()
                             if(needToUpdateEmbed)
                                 event.updateEmbed()
+    
+                            sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
+                        }
+                        else {
+                            sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
                         }
                     }
-                    
-                    sourceMessage.channel.sendMessage("Event has been updated").queue()
                 }
                 "delete" -> {
-                    val title = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.rawValue else return
+                    val uuid = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.objValue else return
+                    if(uuid !is UUID)
+                        return
                     synchronized(eventLock) {
-                        events.filter {it.title == title}.forEach {
+                        events.firstOrNull {it.uuid == uuid}?.let {
                             events.remove(it)
                             it.role.delete().queue()
                             it.message.delete().queue()
                             it.file.delete()
-                        }
+                            sourceMessage.channel.sendMessage("The event with uuid $uuid has been removed").queue()
+                        } ?: sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
                     }
-                    sourceMessage.channel.sendMessage("Events with the title '$title' have been removed").queue()
+                }
+                "refreshEmbed" -> {
+                    val uuid = if(tokenizer.hasNext()) tokenizer.next().objValue else return
+                    if(uuid !is UUID)
+                        return
+                    
+                    synchronized(eventLock) {
+                        events.firstOrNull {it.uuid == uuid}?.updateEmbed() ?: sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
+                        sourceMessage.channel.sendMessage("The event with uuid $uuid has had its embed updated").queue()
+                    }
                 }
             }
         }

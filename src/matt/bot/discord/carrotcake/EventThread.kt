@@ -19,9 +19,19 @@ class EventThread: Thread("discord-user-event-thread") {
                     RunningEventThread(event).start()
                     sleep = false
                 }
+                if(sleep) {
+                    events.forEach {
+                        val timeUntilEvent = Duration.between(LocalDateTime.now(), it.startingTime)
+                        if(timeUntilEvent < Duration.ofMinutes(15))
+                            it.updateEmbed()
+                        else if(timeUntilEvent.toMinutes() % 15 == 0L && timeUntilEvent.seconds % 60 < 30)
+                            it.updateEmbed()
+                    }
+                }
             }
-            if(sleep)
+            if(sleep) {
                 sleep(30_000)
+            }
         }
     }
 }

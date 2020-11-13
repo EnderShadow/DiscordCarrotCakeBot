@@ -8,11 +8,7 @@ import org.json.JSONObject
 import java.time.Duration
 import java.time.LocalDateTime
 
-fun countMentions(message: Message) = message.mentionedChannels.size + message.mentionedRoles.size + message.mentionedUsers.size + if(message.mentionsEveryone()) 1 else 0
-
 fun isServerAdmin(member: Member) = member.isOwner || member.roles.intersect(joinedGuilds[member.guild]!!.serverAdminRoles).isNotEmpty() || member.hasPermission(Permission.ADMINISTRATOR) || member.hasPermission(Permission.MANAGE_SERVER)
-
-fun canManageEvents(member: Member) = joinedGuilds[member.guild]!!.eventManagerRole in member.roles || isServerAdmin(member)
 
 fun reloadBot(bot: JDA)
 {
@@ -99,7 +95,16 @@ fun String.containsSparse(text: String): Boolean
 }
 
 fun prettyPrintDate(localDateTime: LocalDateTime): String {
-    return "${localDateTime.month.name.toLowerCase().capitalize()} ${localDateTime.dayOfMonth}, ${localDateTime.year}, at ${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')} CDT"
+    val month = localDateTime.month.name.toLowerCase().capitalize()
+    val dayOfMonth = localDateTime.dayOfMonth
+    val year = localDateTime.year
+    val time24hour = "${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')}"
+    
+    val isAM = localDateTime.hour < 12
+    val hourOn12HourClock = if(localDateTime.hour == 0 || localDateTime.hour == 12) 12 else (localDateTime.hour % 12)
+    val time12hour = "$hourOn12HourClock:${localDateTime.minute.toString().padStart(2, '0')} ${if(isAM) "AM" else "PM"}"
+    
+    return "$month $dayOfMonth, $year, at $time24hour ($time12hour) CDT"
 }
 
 fun prettyPrintDuration(duration: Duration): String {

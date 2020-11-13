@@ -10,13 +10,17 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
-class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var title: String, var details: String, var pingMessage: Message? = null, val uuid: UUID = UUID.randomUUID()) {
+class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var title: String, var details: String, val uuid: UUID, var pingMessage: Message? = null) {
     companion object {
-        fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration): MessageEmbed {
+        fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration, uuid: UUID): MessageEmbed {
             val embedBuilder = EmbedBuilder()
             embedBuilder.setTitle(title).setDescription(details).setImage(bot.selfUser.avatarUrl)
             embedBuilder.addField("Date", prettyPrintDate(start), false)
-            embedBuilder.addField("Duration", prettyPrintDuration(duration), false)
+            embedBuilder.addField("Duration", prettyPrintDuration(duration), true)
+            val timeUntilEvent = Duration.between(LocalDateTime.now(), start)
+            val timeUntilEventStr = if(timeUntilEvent <= Duration.ZERO) "now" else prettyPrintDuration(timeUntilEvent)
+            embedBuilder.addField("Time until event", timeUntilEventStr, true)
+            embedBuilder.addField("UUID", uuid.toString(), false)
             embedBuilder.setFooter("React to this message with $eventEmote for a notification when the event starts")
             
             return embedBuilder.build()
@@ -49,7 +53,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
     }
     
     fun updateEmbed() {
-        val embed = createEmbed(title, details, startingTime, duration)
+        val embed = createEmbed(title, details, startingTime, duration, uuid)
         message.editMessage(embed).queue()
     }
     

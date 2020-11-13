@@ -1,6 +1,8 @@
 package matt.bot.discord.carrotcake
 
-private val whiteSpaceRegex = Regex("\\s")
+import java.util.*
+import kotlin.NoSuchElementException
+
 private val numberRegex = Regex("-?[0-9]+(\\.[0-9]+)?([eE][0-9]+)?")
 
 fun toToken(botPrefix: String, textUnit: String): Token
@@ -13,6 +15,7 @@ fun toToken(botPrefix: String, textUnit: String): Token
         textUnit.matches(Regex("<@&[0-9]+>")) -> Token(TokenType.ROLE, textUnit.substring(3, textUnit.length - 1), textUnit)
         textUnit.matches(Regex("<#[0-9]+>")) -> Token(TokenType.TEXT_CHANNEL, textUnit.substring(2, textUnit.length - 1), textUnit)
         textUnit.matches(Regex("[0-9]+-[0-9]+")) -> Token(TokenType.RANGE, textUnit)
+        textUnit.matches(Regex("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")) -> Token(TokenType.UUID, textUnit)
         else -> {
             if(textUnit.matches(numberRegex))
                 Token(TokenType.NUMBER, textUnit)
@@ -179,6 +182,9 @@ data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue:
                     val nums = tokenValue.split("-")
                     nums[0].toLong()..nums[1].toLong()
                 }
+                TokenType.UUID -> {
+                    UUID.fromString(tokenValue)
+                }
             }
         }
         catch(_: Exception) {
@@ -190,5 +196,5 @@ data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue:
 
 enum class TokenType
 {
-    COMMAND, USER, ROLE, TEXT_CHANNEL, TEXT, NUMBER, RANGE
+    COMMAND, USER, ROLE, TEXT_CHANNEL, TEXT, NUMBER, RANGE, UUID
 }

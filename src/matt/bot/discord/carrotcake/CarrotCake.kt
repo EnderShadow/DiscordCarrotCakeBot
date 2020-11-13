@@ -43,8 +43,7 @@ fun main()
     bot = JDABuilder.create(token, GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
         .addEventListeners(UtilityListener(), MessageListener())
         .build()
-        .awaitReady()
-    bot.addEventListener()
+    bot.awaitReady()
     
     while(true)
     {
@@ -66,7 +65,6 @@ fun save()
         
         guildJson.put("guildId", guildInfo.guild.id)
         guildJson.put("adminRoles", JSONArray(guildInfo.serverAdminRoles.map {it.id}))
-        guildJson.put("eventManagerRole", guildInfo.eventManagerRole?.id ?: JSONObject.NULL)
         guildJson.put("eventChannel", guildInfo.eventChannel?.id ?: JSONObject.NULL)
     })
     
@@ -96,7 +94,6 @@ class UtilityListener: ListenerAdapter()
                 val guildInfo = joinedGuilds.getOrPut(guild) {GuildInfo(guild)}
                 
                 guildInfo.serverAdminRoles.addAll(guildData.getJSONArray("adminRoles").mapNotNull {guildInfo.guild.getRoleById(it as String)})
-                guildInfo.eventManagerRole = guildData.getStringOrNull("eventManagerRole")?.let {guildInfo.guild.getRoleById(it)}
                 guildInfo.eventChannel = guildData.getStringOrNull("eventChannel")?.let {guildInfo.guild.getTextChannelById(it)}
             }
         }
@@ -107,7 +104,7 @@ class UtilityListener: ListenerAdapter()
         
         eventDir.mkdirs()
         eventDir.listFiles()?.run {
-            asSequence().forEach {file ->
+            asSequence().filter {it.isFile}.forEach {file ->
                 val eventData = JSONObject(file.readText())
                 val uuidStr = eventData.getString("uuid")
                 val uuid = UUID.fromString(uuidStr)
@@ -142,7 +139,7 @@ class UtilityListener: ListenerAdapter()
                     }
                 }
                 else {
-                    events.add(UserEvent(message, start, duration, title, details, pingMessage, uuid))
+                    events.add(UserEvent(message, start, duration, title, details, uuid, pingMessage))
                 }
             }
         }
