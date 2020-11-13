@@ -309,9 +309,11 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                             
                             if(needToUpdateRole)
                                 event.updateRole()
-                            if(needToUpdateEmbed)
+                            if(needToUpdateEmbed) {
                                 event.updateEmbed()
-    
+                                event.saveEvent()
+                            }
+                            
                             sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
                         }
                         else {

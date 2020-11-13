@@ -139,13 +139,17 @@ class UtilityListener: ListenerAdapter()
                     }
                 }
                 else {
-                    events.add(UserEvent(message, start, duration, title, details, uuid, pingMessage))
+                    // if the ping message exists from a manual event rescheduling, delete the ping message
+                    pingMessage?.delete()?.queue()
+                    
+                    events.add(UserEvent(message, start, duration, title, details, uuid, null))
                 }
             }
         }
         
         // done loading event data
         
+        // synchronization is now required when accessing the event queue
         eventThread.start()
     }
     
