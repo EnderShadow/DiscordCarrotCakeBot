@@ -17,9 +17,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
             embedBuilder.setTitle(title).setDescription(details).setImage(bot.selfUser.avatarUrl)
             embedBuilder.addField("Date", prettyPrintDate(start), false)
             embedBuilder.addField("Duration", prettyPrintDuration(duration), true)
-            val timeUntilEvent = Duration.between(LocalDateTime.now(), start)
-            val timeUntilEventStr = if(timeUntilEvent <= Duration.ZERO) "now" else prettyPrintDuration(timeUntilEvent)
-            embedBuilder.addField("Time until event", timeUntilEventStr, true)
+            embedBuilder.addField("Time until event", prettyPrintDuration(Duration.between(LocalDateTime.now(), start).coerceAtLeast(Duration.ZERO)), true)
             embedBuilder.addField("UUID", uuid.toString(), false)
             embedBuilder.setFooter("React to this message with $eventEmote for a notification when the event starts")
             
