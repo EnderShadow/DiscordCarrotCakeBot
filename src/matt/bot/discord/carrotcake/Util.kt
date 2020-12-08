@@ -108,8 +108,15 @@ fun prettyPrintDate(localDateTime: LocalDateTime): String {
 }
 
 fun prettyPrintDuration(duration: Duration): String {
-    val hours = duration.toHours()
+    val days = duration.toDays()
+    val hours = duration.toHours() - 24 * days
     val minutes = duration.toMinutes() - 60 * hours
+    
+    val dayStr = when {
+        days > 1 -> "$days days"
+        days == 1L -> "1 day"
+        else -> ""
+    }
     
     val hourStr = when {
         hours > 1 -> "$hours hours"
@@ -123,14 +130,33 @@ fun prettyPrintDuration(duration: Duration): String {
         else -> ""
     }
     
-    return if(hourStr.isNotBlank() && minuteStr.isNotBlank())
-        "$hourStr and $minuteStr"
-    else if(hourStr.isNotBlank())
-        hourStr
-    else if(minuteStr.isNotBlank())
-        minuteStr
-    else
-        "0 minutes"
+    val times = listOf(dayStr, hourStr, minuteStr).filter(String::isNotBlank)
+    return when {
+        times.size > 2 -> {
+            // cannot use standard joinToString here because "and " is used as a prefix for the last element
+            val stringBuilder = StringBuilder()
+            for((idx, str) in times.withIndex()) {
+                if(idx == times.lastIndex) {
+                    stringBuilder.append("and ")
+                    stringBuilder.append(str)
+                }
+                else {
+                    stringBuilder.append(str)
+                    stringBuilder.append(", ")
+                }
+            }
+            stringBuilder.toString()
+        }
+        times.size == 2 -> {
+            times.joinToString(" and ")
+        }
+        times.size == 1 -> {
+            times.first()
+        }
+        else -> {
+            "0 minutes"
+        }
+    }
 }
 
 fun splitAt2000(text: String): List<String>
