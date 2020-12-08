@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.TextChannel
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.format.DateTimeParseException
 import java.util.*
 
 fun runCommand(command: String, tokenizer: Tokenizer, sourceMessage: Message)
@@ -77,7 +78,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
     }
     
     class Config: Command("config", true) {
-        override fun helpMessage() = """`${botPrefix}say` __Allows you to configure the bot__
+        override fun helpMessage() = """`${botPrefix}config` __Allows you to configure the bot__
             |
             |**Usage:** ${botPrefix}config list
             |              ${botPrefix}config get [option]
@@ -132,7 +133,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
     
     class Admin: Command("admin", true)
     {
-        override fun helpMessage() = """`l!admin` __Used for managing who can administrate the bot__
+        override fun helpMessage() = """`${botPrefix}admin` __Used for managing who can administrate the bot__
             |
             |**Usage:** l!admin list
             |              l!admin add [role] ...
@@ -175,7 +176,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
     }
     
     class ClearRoles: Command("clearRoles", true) {
-        override fun helpMessage() = """`l!clearRoles` __Used for clearing roles created by the bot__
+        override fun helpMessage() = """`${botPrefix}clearRoles` __Used for clearing roles created by the bot__
             |
             |**Usage:** l!clearRoles
             |
@@ -198,7 +199,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
     }
     
     class Event: Command("event", true) {
-        override fun helpMessage() = """`${botPrefix}help` __Used for managing events__
+        override fun helpMessage() = """`${botPrefix}event` __Used for managing events__
             |
             |**Usage:** ${botPrefix}event list
             |              ${botPrefix}event create [title] [start date] [duration] [event details]
@@ -248,8 +249,23 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     val durationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
                     val details = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.rawValue else return
                     
-                    val start = LocalDateTime.parse(startStr)
-                    val duration = Duration.parse(durationStr)
+                    val start = try {
+                        LocalDateTime.parse(startStr)
+                    }
+                    catch(_: DateTimeParseException) {
+                        System.err.println("Failed to parse start time: $startStr")
+                        sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
+                        return
+                    }
+                    
+                    val duration = try {
+                        Duration.parse(durationStr)
+                    }
+                    catch(_: DateTimeParseException) {
+                        System.err.println("Failed to parse duration: $durationStr")
+                        sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
+                        return
+                    }
                     
                     val uuid = UUID.randomUUID()
                     val embed = UserEvent.createEmbed(title, details, start, duration, uuid)
@@ -283,11 +299,25 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                             }
                             "start" -> {
                                 val newStartStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
-                                newStart = LocalDateTime.parse(newStartStr)
+                                newStart = try {
+                                    LocalDateTime.parse(newStartStr)
+                                }
+                                catch(_: DateTimeParseException) {
+                                    System.err.println("Failed to parse start time: $newStartStr")
+                                    sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
+                                    return
+                                }
                             }
                             "duration" -> {
                                 val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
-                                newDuration = Duration.parse(newDurationStr)
+                                newDuration = try {
+                                    Duration.parse(newDurationStr)
+                                }
+                                catch(_: DateTimeParseException) {
+                                    System.err.println("Failed to parse duration: $newDurationStr")
+                                    sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
+                                    return
+                                }
                             }
                         }
                     }
@@ -346,6 +376,20 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     }
                 }
             }
+        }
+    }
+    
+    class Time: Command("time") {
+        override fun helpMessage() = """`${botPrefix}time` __Used for checking the current date and time of the bot__
+            |
+            |**Usage:** ${botPrefix}time
+            |
+            |**Examples:**
+            |`${botPrefix}time` displays the current date and time for the bot
+        """.trimMargin()
+        
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
+            sourceMessage.channel.sendMessage("It is currently ${prettyPrintDate(LocalDateTime.now())}").queue()
         }
     }
     
