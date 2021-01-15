@@ -300,12 +300,24 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         private fun createEvent(tokenizer: Tokenizer, sourceMessage: Message) {
             val name = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
             
-            val date = checkAndParse(tokenizer, "on", this::parseDate)?.orElse(null) ?: return
-            val time = checkAndParse(tokenizer, "at", this::parseTime)?.orElse(null) ?: return
-            val duration = checkAndParse(tokenizer, "lasting", this::parseDuration)?.orElse(null) ?: return
+            val date = checkAndParse(tokenizer, "on", this::parseDate)?.orElse(null) ?: let {
+                sourceMessage.channel.sendMessage("Failed to parse date.").queue()
+                return
+            }
+            val time = checkAndParse(tokenizer, "at", this::parseTime)?.orElse(null) ?: let {
+                sourceMessage.channel.sendMessage("Failed to parse time.").queue()
+                return
+            }
+            val duration = checkAndParse(tokenizer, "lasting", this::parseDuration)?.orElse(null) ?: let {
+                sourceMessage.channel.sendMessage("Failed to parse duration.").queue()
+                return
+            }
             
             // If the keyword match fails, don't repeat. If the optional is empty, then the command is malformed
-            val repeatType = (checkAndParse(tokenizer, "repeating", this::parseRepeatType) ?: Optional.of(RecurringType.NEVER)).orElseGet(null) ?: return
+            val repeatType = (checkAndParse(tokenizer, "repeating", this::parseRepeatType) ?: Optional.of(RecurringType.NEVER)).orElseGet(null) ?: let {
+                sourceMessage.channel.sendMessage("Failed to parse repeat type.").queue()
+                return
+            }
             
             // shadowed implicit lambda parameter warning is meaningless here since it's the same object in both scopes
             @Suppress("NestedLambdaShadowedImplicitParameter")
@@ -313,7 +325,10 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             val description = checkAndParse(tokenizer, "with") {
                 checkAndParse(it, "description") {
                     it.remainingTextAsToken.tokenValue
-                }?.get() ?: return // if tokenizer has "with" but not "description", that is an error.
+                }?.get() ?: let {
+                    sourceMessage.channel.sendMessage("Failed to parse description.").queue()
+                    return
+                } // if tokenizer has "with" but not "description", that is an error.
             }?.get() ?: "" // if "with description" is not provided, use a blank description
             
             val start = date.atTime(time)
@@ -331,7 +346,10 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         }
         
         private fun editEvent(tokenizer: Tokenizer, sourceMessage: Message) {
-            val uuid = tokenizer.nextOrNull()?.objValue as? UUID ?: return
+            val uuid = tokenizer.nextOrNull()?.objValue as? UUID ?: let {
+                sourceMessage.channel.sendMessage("Invalid UUID.").queue()
+                return
+            }
     
             var newTitle: String? = null
             var newStartDate: LocalDate? = null
@@ -346,19 +364,34 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                         newTitle = tokenizer.nextOrNull()?.tokenValue ?: return
                     }
                     "on" -> {
-                        newStartDate = parseDate(tokenizer) ?: return
+                        newStartDate = parseDate(tokenizer) ?: let {
+                            sourceMessage.channel.sendMessage("Failed to parse date.").queue()
+                            return
+                        }
                     }
                     "at" -> {
-                        newStartTime = parseTime(tokenizer) ?: return
+                        newStartTime = parseTime(tokenizer) ?: let {
+                            sourceMessage.channel.sendMessage("Failed to parse time.").queue()
+                            return
+                        }
                     }
                     "lasting" -> {
-                        newDuration = parseDuration(tokenizer) ?: return
+                        newDuration = parseDuration(tokenizer) ?: let {
+                            sourceMessage.channel.sendMessage("Failed to parse duration.").queue()
+                            return
+                        }
                     }
                     "repeating" -> {
-                        newRepeatType = parseRepeatType(tokenizer) ?: return
+                        newRepeatType = parseRepeatType(tokenizer) ?: let {
+                            sourceMessage.channel.sendMessage("Failed to parse repeat type.").queue()
+                            return
+                        }
                     }
                     "with" -> {
-                        newDetails = (checkAndParse(tokenizer, "description") {it.nextOrNull()?.tokenValue} ?: return).orElse("")
+                        newDetails = (checkAndParse(tokenizer, "description") {it.nextOrNull()?.tokenValue} ?: let {
+                            sourceMessage.channel.sendMessage("Failed to parse description.").queue()
+                            return
+                        }).orElse("")
                     }
                 }
             }
