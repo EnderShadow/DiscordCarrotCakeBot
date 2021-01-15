@@ -58,8 +58,21 @@ class Tokenizer(text: String): Iterator<Token>
             return toToken(botPrefix, text)
         }
     
-    lateinit var currentToken: Token
+    var currentToken = Token.INVALID
         private set
+    
+    private val markHistory = mutableListOf<Pair<String, Token>>()
+    
+    fun mark() {
+        markHistory.add(Pair(remainingText, currentToken))
+    }
+    
+    fun revert() {
+        // reverting when history is empty is a no-op
+        val toRestore = markHistory.removeLastOrNull() ?: return
+        remainingText = toRestore.first
+        currentToken = toRestore.second
+    }
     
     override fun hasNext() = remainingText.isNotBlank()
     
@@ -165,6 +178,10 @@ class Tokenizer(text: String): Iterator<Token>
 
 data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue: String = tokenValue)
 {
+    companion object {
+        val INVALID = Token(TokenType.INVALID, "")
+    }
+    
     val objValue: Any? by lazy {
         try {
             when(tokenType) {
@@ -187,6 +204,9 @@ data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue:
                 TokenType.UUID -> {
                     UUID.fromString(tokenValue)
                 }
+                TokenType.INVALID -> {
+                    null
+                }
             }
         }
         catch(_: Exception) {
@@ -198,5 +218,5 @@ data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue:
 
 enum class TokenType
 {
-    COMMAND, USER, ROLE, TEXT_CHANNEL, TEXT, NUMBER, RANGE, UUID
+    COMMAND, USER, ROLE, TEXT_CHANNEL, TEXT, NUMBER, RANGE, UUID, INVALID
 }
