@@ -535,7 +535,9 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                 val command = tokenizer.next().tokenValue
                 commands[command]?.helpMessage() ?: "Command '$command' was not found."
             }
-            sourceMessage.channel.sendMessage(message).queue()
+            splitAt2000(message).forEach {
+                sourceMessage.channel.sendMessage(it).queue()
+            }
         }
     }
 }
