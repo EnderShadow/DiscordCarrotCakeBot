@@ -154,7 +154,7 @@ class UtilityListener: ListenerAdapter()
                             }
                         }
                         
-                        val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, newStart, duration, uuid)).complete()
+                        val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, newStart, duration, repeating, uuid)).complete()
                         val userEvent = UserEvent(messageToUse, newStart, duration, repeating, title, details, uuid, null)
                         userEvent.saveEvent()
                         userEvent.updateEmbed()
@@ -175,7 +175,7 @@ class UtilityListener: ListenerAdapter()
                     if(message == null)
                         println("Failed to retrieve message, recreating message.")
                     
-                    val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, start, duration, uuid)).complete()
+                    val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, start, duration, repeating, uuid)).complete()
                     val userEvent = if(start > LocalDateTime.now()) {
                         // if the event was manually rescheduled such that it hasn't started yet, delete the ping message
                         pingMessage?.delete()?.queue()

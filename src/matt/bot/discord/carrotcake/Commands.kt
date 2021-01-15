@@ -422,7 +422,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             
             val start = date.atTime(time)
             val uuid = UUID.randomUUID()
-            val embed = UserEvent.createEmbed(name, description, start, duration, uuid)
+            val embed = UserEvent.createEmbed(name, description, start, duration, repeatType, uuid)
     
             joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
                 it.addReaction(eventEmote).queue()

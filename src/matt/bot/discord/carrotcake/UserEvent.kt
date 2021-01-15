@@ -12,12 +12,13 @@ import java.util.*
 
 class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var repeatType: RecurringType, var title: String, var details: String, val uuid: UUID, var pingMessage: Message? = null) {
     companion object {
-        fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration, uuid: UUID): MessageEmbed {
+        fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration, repeatType: RecurringType, uuid: UUID): MessageEmbed {
             val embedBuilder = EmbedBuilder()
             embedBuilder.setTitle(title).setDescription(details).setImage(bot.selfUser.avatarUrl)
             embedBuilder.addField("Date", prettyPrintDate(start), false)
             embedBuilder.addField("Duration", prettyPrintDuration(duration), true)
             embedBuilder.addField("Time until event", prettyPrintDuration(Duration.between(LocalDateTime.now(), start).coerceAtLeast(Duration.ZERO)), true)
+            embedBuilder.addField("Repeating", repeatType.toString().toLowerCase().capitalize(), true)
             embedBuilder.addField("UUID", uuid.toString(), false)
             embedBuilder.setFooter("React to this message with $eventEmote for a notification when the event starts")
             
@@ -51,7 +52,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
     }
     
     fun updateEmbed() {
-        val embed = createEmbed(title, details, startingTime, duration, uuid)
+        val embed = createEmbed(title, details, startingTime, duration, repeatType, uuid)
         message.editMessage(embed).queue()
     }
     
