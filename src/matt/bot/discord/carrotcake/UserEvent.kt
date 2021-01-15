@@ -62,6 +62,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
         eventData.put("uuid", uuid.toString())
         eventData.put("start", startingTime.toString())
         eventData.put("duration", duration.toString())
+        eventData.put("repeating", repeatType.toString())
         eventData.put("title", title)
         eventData.put("details", details)
         eventData.put("channelId", message.channel.id)
