@@ -3,7 +3,6 @@ package matt.bot.discord.carrotcake
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.entities.Member
-import net.dv8tion.jda.api.entities.Message
 import org.json.JSONObject
 import java.time.Duration
 import java.time.LocalDateTime
@@ -109,8 +108,8 @@ fun prettyPrintDate(localDateTime: LocalDateTime): String {
 
 fun prettyPrintDuration(duration: Duration): String {
     val days = duration.toDays()
-    val hours = duration.toHours() - 24 * days
-    val minutes = duration.toMinutes() - 60 * hours
+    val hours = duration.toHours() % 24
+    val minutes = duration.toMinutes() % 60
     
     val dayStr = when {
         days > 1 -> "$days days"
