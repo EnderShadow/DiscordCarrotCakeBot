@@ -200,25 +200,35 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         override fun helpMessage() = """`${botPrefix}event` __Used for managing events__
             |
             |**Usage:** ${botPrefix}event list
-            |              ${botPrefix}event create [title] [start date] [duration] [event details]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never|daily|weekly|monthly|yearly] with description [event details]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never|daily|weekly|monthly|yearly]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] with description [event details]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration]
             |              ${botPrefix}event edit [uuid] [options...]
             |              ${botPrefix}event delete [uuid]
             |              ${botPrefix}event refreshEmbed [uuid]
             |
             |**NOTE**
-            |Dates and durations are specified using ISO 8601 which can be found here: https://en.wikipedia.org/wiki/ISO_8601
+            |Dates are of the form "Month day year" (eg. January 2 2021)
+            |
+            |Times are of the form "hour" or "hour:minute" with an optional AM or PM designator (eg. 4:38 pm)
+            |   24 hour time is supported and does not use an AM or PM designator
+            |
+            |Durations are of the form "x days y hours z minutes". You can leave out values that are equal to 0 (eg. 4 hours)
             |
             |**Editing options**
             |You can use any combination of the following for editing events
-            |   title [new title]
-            |   start [new start date]
-            |   duration [new duration]
-            |   details [new event details]
+            |   named [new name]
+            |   on [new start date]
+            |   at [new start time]
+            |   lasting [new duration]
+            |   repeating [never|daily|weekly|monthly|yearly]
+            |   with description [new event details]
             |
             |**Examples:**
             |`${botPrefix}event list` lists all current events sorted by their start date
-            |`${botPrefix}event create "A Movie" 2020-10-16T19:30 PT2H Watch this great movie` creates an event titled 'A Movie' which starts on October 16, 2020, lasts 2 hours, and has the description 'Watch this great movie'
-            |`${botPrefix}event edit 00000000-0000-0000-0000-000000000000 title "A Great Movie" details "A better description"` edits the event with uuid 00000000-0000-0000-0000-000000000000 and sets the title to 'A Great Movie' and changes the description to 'A better description'
+            |`${botPrefix}event create "A Movie" on October 16 2020 at 7:30 PM lasting 2 hours with description "Watch this great movie"` creates an event named 'A Movie' which starts on October 16, 2020, lasts 2 hours, and has the description 'Watch this great movie'
+            |`${botPrefix}event edit 00000000-0000-0000-0000-000000000000 named "A Great Movie" with description "A better description"` edits the event with uuid 00000000-0000-0000-0000-000000000000 and sets the name to 'A Great Movie' and changes the description to 'A better description'
             |`${botPrefix}event delete 00000000-0000-0000-0000-000000000000` deletes the event with uuid 00000000-0000-0000-0000-000000000000
             |`${botPrefix}event refreshEmbed 00000000-0000-0000-0000-000000000000` updates the embed for the event with uuid 00000000-0000-0000-0000-000000000000
         """.trimMargin()
