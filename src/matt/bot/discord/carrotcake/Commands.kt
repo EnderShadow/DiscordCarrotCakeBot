@@ -342,6 +342,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                 synchronized(eventLock) {
                     events.add(event)
                 }
+                sourceMessage.channel.sendMessage("Event successfully created").queue()
             }
         }
         
