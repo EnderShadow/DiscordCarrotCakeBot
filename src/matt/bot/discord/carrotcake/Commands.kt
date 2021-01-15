@@ -398,22 +398,8 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             val time = checkAndParse(tokenizer, "at", this::parseTime)?.orElse(null) ?: return
             val duration = checkAndParse(tokenizer, "lasting", this::parseDuration)?.orElse(null) ?: return
             
-            tokenizer.mark()
-            val repeatType = checkAndParse(tokenizer, "repeating", this::parseRepeatType).let {
-                // This is an optional parameter, so the only failure is when "parseRepeatType" fails to parse an instance of RecurringType
-                when {
-                    it == null -> {
-                        tokenizer.revert()
-                        RecurringType.NEVER
-                    }
-                    it.isPresent -> {
-                        it.get()
-                    }
-                    else -> {
-                        return
-                    }
-                }
-            }
+            // If the keyword match fails, don't repeat. If the optional is empty, then the command is malformed
+            val repeatType = (checkAndParse(tokenizer, "repeating", this::parseRepeatType) ?: Optional.of(RecurringType.NEVER)).orElseGet(null) ?: return
             
             // shadowed implicit lambda parameter warning is meaningless here since it's the same object in both scopes
             @Suppress("NestedLambdaShadowedImplicitParameter")
