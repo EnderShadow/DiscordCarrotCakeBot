@@ -200,8 +200,8 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         override fun helpMessage() = """`${botPrefix}event` __Used for managing events__
             |
             |**Usage:** ${botPrefix}event list
-            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never|daily|weekly|monthly|yearly] with description [event details]
-            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never|daily|weekly|monthly|yearly]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never | daily | weekly | monthly | yearly] with description [event details]
+            |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] repeating [never | daily | weekly | monthly | yearly]
             |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration] with description [event details]
             |              ${botPrefix}event create [name] on [start date] at [start time] lasting [duration]
             |              ${botPrefix}event edit [uuid] [options...]
@@ -222,12 +222,12 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             |   on [new start date]
             |   at [new start time]
             |   lasting [new duration]
-            |   repeating [never|daily|weekly|monthly|yearly]
+            |   repeating [never | daily | weekly | monthly | yearly]
             |   with description [new event details]
             |
             |**Examples:**
             |`${botPrefix}event list` lists all current events sorted by their start date
-            |`${botPrefix}event create "A Movie" on October 16 2020 at 7:30 PM lasting 2 hours with description "Watch this great movie"` creates an event named 'A Movie' which starts on October 16, 2020, lasts 2 hours, and has the description 'Watch this great movie'
+            |`${botPrefix}event create "A Movie" on October 16 2020 at 7:30 PM lasting 2 hours repeating weekly with description "Watch this great movie"` creates an event named 'A Movie' which starts on October 16, 2020, lasts 2 hours, repeats weekly, and has the description 'Watch this great movie'
             |`${botPrefix}event edit 00000000-0000-0000-0000-000000000000 named "A Great Movie" with description "A better description"` edits the event with uuid 00000000-0000-0000-0000-000000000000 and sets the name to 'A Great Movie' and changes the description to 'A better description'
             |`${botPrefix}event delete 00000000-0000-0000-0000-000000000000` deletes the event with uuid 00000000-0000-0000-0000-000000000000
             |`${botPrefix}event refreshEmbed 00000000-0000-0000-0000-000000000000` updates the embed for the event with uuid 00000000-0000-0000-0000-000000000000
