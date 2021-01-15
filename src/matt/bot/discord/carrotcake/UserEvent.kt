@@ -14,7 +14,7 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
     companion object {
         fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration, repeatType: RecurringType, uuid: UUID): MessageEmbed {
             val embedBuilder = EmbedBuilder()
-            embedBuilder.setTitle(title).setDescription(details).setImage(bot.selfUser.avatarUrl)
+            embedBuilder.setTitle(title).setDescription(details)//.setImage(bot.selfUser.avatarUrl)
             embedBuilder.addField("Date", prettyPrintDate(start), false)
             embedBuilder.addField("Duration", prettyPrintDuration(duration), true)
             embedBuilder.addField("Time until event", prettyPrintDuration(Duration.between(LocalDateTime.now(), start).coerceAtLeast(Duration.ZERO)), true)
