@@ -3,7 +3,6 @@ package matt.bot.discord.carrotcake
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.TextChannel
 import java.time.*
-import java.time.format.DateTimeParseException
 import java.util.*
 
 fun runCommand(command: String, tokenizer: Tokenizer, sourceMessage: Message)
@@ -280,76 +279,77 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
 //                    }
                 }
                 "edit" -> {
-                    val uuid = if(tokenizer.hasNext()) tokenizer.next().objValue else return
-                    if(uuid !is UUID)
-                        return
-                    
-                    var newTitle: String? = null
-                    var newDetails: String? = null
-                    var newStart: LocalDateTime? = null
-                    var newDuration: Duration? = null
-                    
-                    while(tokenizer.hasNext()) {
-                        when(tokenizer.next().tokenValue) {
-                            "title" -> {
-                                newTitle = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
-                            }
-                            "details" -> {
-                                newDetails = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
-                            }
-                            "start" -> {
-                                val newStartStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
-                                newStart = try {
-                                    LocalDateTime.parse(newStartStr)
-                                }
-                                catch(_: DateTimeParseException) {
-                                    System.err.println("Failed to parse start time: $newStartStr")
-                                    sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
-                                    return
-                                }
-                            }
-                            "duration" -> {
-                                val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
-                                newDuration = try {
-                                    Duration.parse(newDurationStr)
-                                }
-                                catch(_: DateTimeParseException) {
-                                    System.err.println("Failed to parse duration: $newDurationStr")
-                                    sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
-                                    return
-                                }
-                            }
-                        }
-                    }
-                    
-                    val needToUpdateRole = newTitle != null
-                    val needToUpdateEmbed = newTitle != null || newDetails != null || newStart != null || newDuration != null
-                    
-                    synchronized(eventLock) {
-                        val event = events.firstOrNull {it.uuid == uuid}
-                        if(event != null) {
-                            if(newTitle != null)
-                                event.title = newTitle
-                            if(newDetails != null)
-                                event.details = newDetails
-                            if(newStart != null)
-                                event.startingTime = newStart
-                            if(newDuration != null)
-                                event.duration = newDuration
-                            
-                            if(needToUpdateRole)
-                                event.updateRole()
-                            if(needToUpdateEmbed) {
-                                event.updateEmbed()
-                                event.saveEvent()
-                            }
-                            
-                            sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
-                        }
-                        else {
-                            sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
-                        }
-                    }
+                    editEvent(tokenizer, sourceMessage)
+//                    val uuid = if(tokenizer.hasNext()) tokenizer.next().objValue else return
+//                    if(uuid !is UUID)
+//                        return
+//
+//                    var newTitle: String? = null
+//                    var newDetails: String? = null
+//                    var newStart: LocalDateTime? = null
+//                    var newDuration: Duration? = null
+//
+//                    while(tokenizer.hasNext()) {
+//                        when(tokenizer.next().tokenValue) {
+//                            "title" -> {
+//                                newTitle = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                            }
+//                            "details" -> {
+//                                newDetails = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                            }
+//                            "start" -> {
+//                                val newStartStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                                newStart = try {
+//                                    LocalDateTime.parse(newStartStr)
+//                                }
+//                                catch(_: DateTimeParseException) {
+//                                    System.err.println("Failed to parse start time: $newStartStr")
+//                                    sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
+//                                    return
+//                                }
+//                            }
+//                            "duration" -> {
+//                                val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                                newDuration = try {
+//                                    Duration.parse(newDurationStr)
+//                                }
+//                                catch(_: DateTimeParseException) {
+//                                    System.err.println("Failed to parse duration: $newDurationStr")
+//                                    sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
+//                                    return
+//                                }
+//                            }
+//                        }
+//                    }
+//
+//                    val needToUpdateRole = newTitle != null
+//                    val needToUpdateEmbed = newTitle != null || newDetails != null || newStart != null || newDuration != null
+//
+//                    synchronized(eventLock) {
+//                        val event = events.firstOrNull {it.uuid == uuid}
+//                        if(event != null) {
+//                            if(newTitle != null)
+//                                event.title = newTitle
+//                            if(newDetails != null)
+//                                event.details = newDetails
+//                            if(newStart != null)
+//                                event.startingTime = newStart
+//                            if(newDuration != null)
+//                                event.duration = newDuration
+//
+//                            if(needToUpdateRole)
+//                                event.updateRole()
+//                            if(needToUpdateEmbed) {
+//                                event.updateEmbed()
+//                                event.saveEvent()
+//                            }
+//
+//                            sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
+//                        }
+//                        else {
+//                            sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
+//                        }
+//                    }
                 }
                 "delete" -> {
                     val uuid = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.objValue else return
@@ -420,6 +420,79 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                 event.saveEvent()
                 synchronized(eventLock) {
                     events.add(event)
+                }
+            }
+        }
+        
+        private fun editEvent(tokenizer: Tokenizer, sourceMessage: Message) {
+            val uuid = tokenizer.nextOrNull()?.objValue as? UUID ?: return
+    
+            var newTitle: String? = null
+            var newStartDate: LocalDate? = null
+            var newStartTime: LocalTime? = null
+            var newDuration: Duration? = null
+            var newRepeatType: RecurringType? = null
+            var newDetails: String? = null
+            
+            while(tokenizer.hasNext()) {
+                when(tokenizer.next().tokenValue) {
+                    "named" -> {
+                        newTitle = tokenizer.nextOrNull()?.tokenValue ?: return
+                    }
+                    "on" -> {
+                        newStartDate = parseDate(tokenizer) ?: return
+                    }
+                    "at" -> {
+                        newStartTime = parseTime(tokenizer) ?: return
+                    }
+                    "lasting" -> {
+                        newDuration = parseDuration(tokenizer) ?: return
+                    }
+                    "repeating" -> {
+                        newRepeatType = parseRepeatType(tokenizer) ?: return
+                    }
+                    "with" -> {
+                        newDetails = (checkAndParse(tokenizer, "description") {it.nextOrNull()?.tokenValue} ?: return).orElse("")
+                    }
+                }
+            }
+    
+            val needToUpdateRole = newTitle != null
+            val needToUpdateEmbed = newTitle != null || newDetails != null || newStartDate != null || newStartTime != null || newDuration != null || newRepeatType != null
+    
+            synchronized(eventLock) {
+                val event = events.firstOrNull {it.uuid == uuid}
+                if(event != null) {
+                    if(newTitle != null)
+                        event.title = newTitle
+                    
+                    if(newDetails != null)
+                        event.details = newDetails
+                    
+                    if(newStartDate != null && newStartTime != null)
+                        event.startingTime = newStartDate.atTime(newStartTime)
+                    else if(newStartDate != null)
+                        event.startingTime = newStartDate.atTime(event.startingTime.toLocalTime())
+                    else // newStartTime != null
+                        event.startingTime = event.startingTime.toLocalDate().atTime(newStartTime)
+                    
+                    if(newDuration != null)
+                        event.duration = newDuration
+                    
+                    if(newRepeatType != null)
+                        event.repeatType = newRepeatType
+            
+                    if(needToUpdateRole)
+                        event.updateRole()
+                    if(needToUpdateEmbed) {
+                        event.updateEmbed()
+                        event.saveEvent()
+                    }
+            
+                    sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
+                }
+                else {
+                    sourceMessage.channel.sendMessage("No event with uuid $uuid was found").queue()
                 }
             }
         }
