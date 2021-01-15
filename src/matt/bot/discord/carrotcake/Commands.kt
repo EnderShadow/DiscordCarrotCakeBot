@@ -379,7 +379,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                         event.startingTime = newStartDate.atTime(newStartTime)
                     else if(newStartDate != null)
                         event.startingTime = newStartDate.atTime(event.startingTime.toLocalTime())
-                    else // newStartTime != null
+                    else if(newStartTime != null)
                         event.startingTime = event.startingTime.toLocalDate().atTime(newStartTime)
                     
                     if(newDuration != null)
