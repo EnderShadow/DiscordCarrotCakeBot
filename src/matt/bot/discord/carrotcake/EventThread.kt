@@ -55,8 +55,43 @@ private class RunningEventThread(private val userEvent: UserEvent): Thread("even
             sleep(remaining.toMillis())
         
         eventStartMessage?.delete()?.queue()
-        userEvent.role.delete().queue()
-        userEvent.message.delete().queue()
-        userEvent.file.delete()
+        
+        when(userEvent.repeatType) {
+            RecurringType.NEVER -> {
+                userEvent.message.delete().queue()
+                userEvent.role.delete().queue()
+                userEvent.file.delete()
+            }
+            RecurringType.DAILY -> {
+                while(userEvent.startingTime < LocalDateTime.now())
+                    userEvent.startingTime = userEvent.startingTime.plusDays(1)
+                userEvent.saveEvent()
+                userEvent.updateEmbed()
+            }
+            RecurringType.WEEKLY -> {
+                while(userEvent.startingTime < LocalDateTime.now())
+                    userEvent.startingTime = userEvent.startingTime.plusWeeks(1)
+                userEvent.saveEvent()
+                userEvent.updateEmbed()
+            }
+            RecurringType.MONTHLY -> {
+                while(userEvent.startingTime < LocalDateTime.now())
+                    userEvent.startingTime = userEvent.startingTime.plusMonths(1)
+                userEvent.saveEvent()
+                userEvent.updateEmbed()
+            }
+            RecurringType.YEARLY -> {
+                while(userEvent.startingTime < LocalDateTime.now())
+                    userEvent.startingTime = userEvent.startingTime.plusYears(1)
+                userEvent.saveEvent()
+                userEvent.updateEmbed()
+            }
+        }
+        
+        if(userEvent.repeatType != RecurringType.NEVER) {
+            synchronized(eventLock) {
+                events.add(userEvent)
+            }
+        }
     }
 }

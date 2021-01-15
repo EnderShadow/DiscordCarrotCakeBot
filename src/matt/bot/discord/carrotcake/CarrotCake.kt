@@ -110,6 +110,7 @@ class UtilityListener: ListenerAdapter()
                 val uuid = UUID.fromString(uuidStr)
                 val start = LocalDateTime.parse(eventData.getString("start"))
                 val duration = Duration.parse(eventData.getString("duration"))
+                val repeating = RecurringType.valueOf(eventData.getString("repeating"))
                 val title = eventData.getString("title")
                 val details = eventData.getString("details")
     
@@ -118,18 +119,50 @@ class UtilityListener: ListenerAdapter()
                 val pingMessage = eventData.getStringOrNull("pingMessageId")?.let {textChannel?.retrieveMessageById(it)?.complete()}
                 
                 if(start + duration <= LocalDateTime.now()) {
-                    println("Event has already ended. Cleaning up.")
-                    file.delete()
-                    message?.delete()?.queue()
+                    println("Event has already ended.")
                     pingMessage?.delete()?.queue()
-                    val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
-                    if(guildInfo != null) {
-                        val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
-                        role?.delete()?.queue()
+                    if(repeating == RecurringType.NEVER || (textChannel == null && message == null)) {
+                        println("Event does not repeat or message is unable to be found or created. Deleting event.")
+                        message?.delete()?.queue()
+                        file.delete()
+                        val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
+                        if(guildInfo != null) {
+                            val role = guildInfo.guild.getRolesByName("$title $uuidStr", true).firstOrNull()
+                            role?.delete()?.queue()
+                        }
+                    }
+                    else {
+                        println("Updating event with new start date.")
+                        var newStart = start
+                        when(repeating) {
+                            RecurringType.NEVER -> Unit // already taken care of above
+                            RecurringType.DAILY -> {
+                                while(newStart < LocalDateTime.now())
+                                    newStart = newStart.plusDays(1)
+                            }
+                            RecurringType.WEEKLY -> {
+                                while(newStart < LocalDateTime.now())
+                                    newStart = newStart.plusWeeks(1)
+                            }
+                            RecurringType.MONTHLY -> {
+                                while(newStart < LocalDateTime.now())
+                                    newStart = newStart.plusMonths(1)
+                            }
+                            RecurringType.YEARLY -> {
+                                while(newStart < LocalDateTime.now())
+                                    newStart = newStart.plusYears(1)
+                            }
+                        }
+                        
+                        val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, newStart, duration, uuid)).complete()
+                        val userEvent = UserEvent(messageToUse, newStart, duration, repeating, title, details, uuid, null)
+                        userEvent.saveEvent()
+                        userEvent.updateEmbed()
+                        events.add(userEvent)
                     }
                 }
-                else if(message == null) {
-                    System.err.println("Failed to retrieve message from discord servers. Event is no longer valid. Cleaning up.")
+                else if(message == null && textChannel == null) {
+                    System.err.println("Failed to retrieve message and textChannel from discord servers. Event is no longer valid. Cleaning up.")
                     file.delete()
                     pingMessage?.delete()?.queue()
                     val guildInfo = textChannel?.guild?.let(joinedGuilds::get)
@@ -139,14 +172,23 @@ class UtilityListener: ListenerAdapter()
                     }
                 }
                 else {
-                    if(start > LocalDateTime.now()) {
+                    if(message == null)
+                        println("Failed to retrieve message, recreating message.")
+                    
+                    val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, start, duration, uuid)).complete()
+                    val userEvent = if(start > LocalDateTime.now()) {
                         // if the event was manually rescheduled such that it hasn't started yet, delete the ping message
                         pingMessage?.delete()?.queue()
-                        events.add(UserEvent(message, start, duration, title, details, uuid, null))
+                        UserEvent(messageToUse, start, duration, repeating, title, details, uuid, null)
                     }
                     else {
-                        events.add(UserEvent(message, start, duration, title, details, uuid, pingMessage))
+                        UserEvent(messageToUse, start, duration, repeating, title, details, uuid, pingMessage)
                     }
+                    
+                    if(message == null)
+                        userEvent.saveEvent()
+                    
+                    events.add(userEvent)
                 }
             }
         }

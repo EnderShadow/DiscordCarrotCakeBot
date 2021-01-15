@@ -2,8 +2,7 @@ package matt.bot.discord.carrotcake
 
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.TextChannel
-import java.time.Duration
-import java.time.LocalDateTime
+import java.time.*
 import java.time.format.DateTimeParseException
 import java.util.*
 
@@ -92,7 +91,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
     
         override fun invoke(tokenizer: Tokenizer, sourceMessage: Message)
         {
-            val mode = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+            val mode = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
             val guildInfo = joinedGuilds[sourceMessage.guild]!!
             when(mode) {
                 "list" -> {
@@ -101,7 +100,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     sourceMessage.channel.sendMessage(message).allowedMentions(emptyList()).queue()
                 }
                 "get" -> {
-                    val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val option = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                     val message = when(option) {
                         "eventChannel" -> {
                             "eventChannel: ${guildInfo.eventChannel?.asMention ?: "none"}"
@@ -112,7 +111,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     sourceMessage.channel.sendMessage(message).allowedMentions(emptyList()).queue()
                 }
                 "set" -> {
-                    val option = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                    val option = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                     val newValue = if(tokenizer.hasNext()) tokenizer.next() else return
                     when(option) {
                         "eventChannel" -> {
@@ -226,7 +225,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         """.trimMargin()
     
         override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
-            val mode = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+            val mode = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
             when(mode) {
                 "list" -> {
                     synchronized(eventLock) {
@@ -244,40 +243,41 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     }
                 }
                 "create" -> {
-                    val title = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
-                    val startStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
-                    val durationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
-                    val details = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.rawValue else return
-                    
-                    val start = try {
-                        LocalDateTime.parse(startStr)
-                    }
-                    catch(_: DateTimeParseException) {
-                        System.err.println("Failed to parse start time: $startStr")
-                        sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
-                        return
-                    }
-                    
-                    val duration = try {
-                        Duration.parse(durationStr)
-                    }
-                    catch(_: DateTimeParseException) {
-                        System.err.println("Failed to parse duration: $durationStr")
-                        sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
-                        return
-                    }
-                    
-                    val uuid = UUID.randomUUID()
-                    val embed = UserEvent.createEmbed(title, details, start, duration, uuid)
-                    
-                    joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
-                        it.addReaction(eventEmote).queue()
-                        val event = UserEvent(it, start, duration, title, details, uuid)
-                        event.saveEvent()
-                        synchronized(eventLock) {
-                            events.add(event)
-                        }
-                    }
+                    createEvent(tokenizer, sourceMessage)
+//                    val title = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                    val startStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                    val durationStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+//                    val details = if(tokenizer.hasNext()) tokenizer.remainingTextAsToken.tokenValue else return
+//
+//                    val start = try {
+//                        LocalDateTime.parse(startStr)
+//                    }
+//                    catch(_: DateTimeParseException) {
+//                        System.err.println("Failed to parse start time: $startStr")
+//                        sourceMessage.channel.sendMessage("Failed to parse the start time. Refer to ${botPrefix}!help event").queue()
+//                        return
+//                    }
+//
+//                    val duration = try {
+//                        Duration.parse(durationStr)
+//                    }
+//                    catch(_: DateTimeParseException) {
+//                        System.err.println("Failed to parse duration: $durationStr")
+//                        sourceMessage.channel.sendMessage("Failed to parse the duration. Refer to ${botPrefix}!help event").queue()
+//                        return
+//                    }
+//
+//                    val uuid = UUID.randomUUID()
+//                    val embed = UserEvent.createEmbed(title, details, start, duration, uuid)
+//
+//                    joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
+//                        it.addReaction(eventEmote).queue()
+//                        val event = UserEvent(it, start, duration, RecurringType.NEVER, title, details, uuid)
+//                        event.saveEvent()
+//                        synchronized(eventLock) {
+//                            events.add(event)
+//                        }
+//                    }
                 }
                 "edit" -> {
                     val uuid = if(tokenizer.hasNext()) tokenizer.next().objValue else return
@@ -290,15 +290,15 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                     var newDuration: Duration? = null
                     
                     while(tokenizer.hasNext()) {
-                        when(tokenizer.next().rawValue) {
+                        when(tokenizer.next().tokenValue) {
                             "title" -> {
-                                newTitle = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                newTitle = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                             }
                             "details" -> {
-                                newDetails = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                newDetails = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                             }
                             "start" -> {
-                                val newStartStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                val newStartStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                                 newStart = try {
                                     LocalDateTime.parse(newStartStr)
                                 }
@@ -309,7 +309,7 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                                 }
                             }
                             "duration" -> {
-                                val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().rawValue else return
+                                val newDurationStr = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
                                 newDuration = try {
                                     Duration.parse(newDurationStr)
                                 }
@@ -377,9 +377,148 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                 }
             }
         }
+    
+        /**
+         * If the keyword check fails then null is returned. Otherwise the result of the parse function is wrapped with Optional so that the point of failure can be determined
+         */
+        private inline fun <reified T> checkAndParse(tokenizer: Tokenizer, keyword: String, parseFunction: (Tokenizer) -> T?): Optional<T>? {
+            if(!tokenizer.hasNext() || tokenizer.next().rawValue != keyword)
+                return null
+            return Optional.ofNullable(parseFunction(tokenizer))
+        }
+        
+        private fun createEvent(tokenizer: Tokenizer, sourceMessage: Message) {
+            val name = if(tokenizer.hasNext()) tokenizer.next().tokenValue else return
+            
+            val date = checkAndParse(tokenizer, "on", this::parseDate)?.orElse(null) ?: return
+            val time = checkAndParse(tokenizer, "at", this::parseTime)?.orElse(null) ?: return
+            val duration = checkAndParse(tokenizer, "lasting", this::parseDuration)?.orElse(null) ?: return
+            
+            tokenizer.mark()
+            val repeatType = checkAndParse(tokenizer, "repeating", this::parseRepeatType).let {
+                // This is an optional parameter, so the only failure is when "parseRepeatType" fails to parse an instance of RecurringType
+                when {
+                    it == null -> {
+                        tokenizer.revert()
+                        RecurringType.NEVER
+                    }
+                    it.isPresent -> {
+                        it.get()
+                    }
+                    else -> {
+                        return
+                    }
+                }
+            }
+            
+            // shadowed implicit lambda parameter warning is meaningless here since it's the same object in both scopes
+            @Suppress("NestedLambdaShadowedImplicitParameter")
+            // Tokenizer.remainingTextAsToken.tokenValue is never null
+            val description = checkAndParse(tokenizer, "with") {
+                checkAndParse(it, "description") {
+                    it.remainingTextAsToken.tokenValue
+                }?.get() ?: return // if tokenizer has "with" but not "description", that is an error.
+            }?.get() ?: "" // if "with description" is not provided, use a blank description
+            
+            val start = date.atTime(time)
+            val uuid = UUID.randomUUID()
+            val embed = UserEvent.createEmbed(name, description, start, duration, uuid)
+    
+            joinedGuilds[sourceMessage.guild]!!.eventChannel?.sendMessage(embed)?.queue {
+                it.addReaction(eventEmote).queue()
+                val event = UserEvent(it, start, duration, repeatType, name, description, uuid)
+                event.saveEvent()
+                synchronized(eventLock) {
+                    events.add(event)
+                }
+            }
+        }
+        
+        private fun parseDate(tokenizer: Tokenizer): LocalDate? {
+            val relativeDate = tokenizer.nextOrNull()?.tokenValue ?: return null
+            if(relativeDate.equals("today", true))
+                return LocalDate.now()
+            else if(relativeDate.equals("tomorrow", true))
+                return LocalDate.now().plusDays(1)
+            
+            val month = Month.values().firstOrNull {it.name.equals(relativeDate, true)} ?: return null
+            val day = tokenizer.nextOrNull()?.objValue as? Long ?: return null
+            val year = tokenizer.nextOrNull()?.objValue as? Long ?: return null
+            
+            return try {
+                LocalDate.of(year.toInt(), month, day.toInt())
+            }
+            catch(_: Exception) {
+                null
+            }
+        }
+        
+        private fun parseTime(tokenizer: Tokenizer): LocalTime? {
+            val time = tokenizer.nextOrNull()?.tokenValue ?: return null
+            tokenizer.mark()
+            val isPM = tokenizer.nextOrNull()?.tokenValue.let {
+                when {
+                    it.equals("pm", true) -> true
+                    it.equals("am", true) -> false
+                    else -> {
+                        tokenizer.revert()
+                        null
+                    }
+                }
+            }
+            
+            val separatorIndex = time.indexOf(':')
+            val hour = if(separatorIndex > 0)
+                time.substring(0, separatorIndex).toIntOrNull() ?: return null
+            else
+                time.toIntOrNull() ?: return null
+            val minute = if(separatorIndex > 0)
+                time.substring(separatorIndex + 1).toIntOrNull() ?: return null
+            else
+                0
+            
+            if(minute !in 0..59)
+                return null
+    
+            return if(isPM == null && hour in 0..23)
+                LocalTime.of(hour, minute)
+            else if(isPM == true && hour in 1..12)
+                LocalTime.of(hour % 12 + 12, minute)
+            else if(isPM == false && hour in 1..12)
+                LocalTime.of(hour % 12, minute)
+            else
+                null
+        }
+        
+        private fun parseDuration(tokenizer: Tokenizer): Duration? {
+            var duration = Duration.ZERO
+            while(tokenizer.hasNext()) {
+                tokenizer.mark()
+                val num = tokenizer.next().objValue as? Long
+                if(num == null) {
+                    tokenizer.revert()
+                    break
+                }
+                val unit = tokenizer.nextOrNull()?.tokenValue ?: return null
+                duration = if(unit.equals("day", true) || unit.equals("days", true))
+                    duration.plusDays(num)
+                else if(unit.equals("hour", true) || unit.equals("hours", true))
+                    duration.plusHours(num)
+                else if(unit.equals("minute", true) || unit.equals("minutes", true))
+                    duration.plusMinutes(num)
+                else
+                    return null
+            }
+            return if(duration.isZero) null else duration
+        }
+        
+        private fun parseRepeatType(tokenizer: Tokenizer): RecurringType? {
+            val text = tokenizer.next().tokenValue
+            return RecurringType.values().firstOrNull {it.name.equals(text, true)}
+        }
     }
     
-    class Time: Command("time") {
+    class Time: Command("time", allowedInPrivateChannel = true) {
         override fun helpMessage() = """`${botPrefix}time` __Used for checking the current date and time of the bot__
             |
             |**Usage:** ${botPrefix}time

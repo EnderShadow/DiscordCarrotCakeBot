@@ -10,7 +10,7 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
-class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var title: String, var details: String, val uuid: UUID, var pingMessage: Message? = null) {
+class UserEvent(var message: Message, var startingTime: LocalDateTime, var duration: Duration, var repeatType: RecurringType, var title: String, var details: String, val uuid: UUID, var pingMessage: Message? = null) {
     companion object {
         fun createEmbed(title: String, details: String, start: LocalDateTime, duration: Duration, uuid: UUID): MessageEmbed {
             val embedBuilder = EmbedBuilder()
@@ -70,4 +70,8 @@ class UserEvent(var message: Message, var startingTime: LocalDateTime, var durat
         
         file.writeText(eventData.toString(4))
     }
+}
+
+enum class RecurringType {
+    NEVER, DAILY, WEEKLY, MONTHLY, YEARLY
 }
