@@ -379,11 +379,15 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
         }
     
         /**
-         * If the keyword check fails then null is returned. Otherwise the result of the parse function is wrapped with Optional so that the point of failure can be determined
+         * If the keyword check fails then null is returned. Otherwise the result of the parse function is wrapped with Optional so that the point of failure can be determined.
+         * If the keyword match fails then the tokenizer will be in the same state that it was before the call to checkAndParse
          */
         private inline fun <reified T> checkAndParse(tokenizer: Tokenizer, keyword: String, parseFunction: (Tokenizer) -> T?): Optional<T>? {
-            if(!tokenizer.hasNext() || tokenizer.next().rawValue != keyword)
+            tokenizer.mark()
+            if(tokenizer.nextOrNull()?.rawValue != keyword) {
+                tokenizer.revert()
                 return null
+            }
             return Optional.ofNullable(parseFunction(tokenizer))
         }
         
