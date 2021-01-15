@@ -30,7 +30,7 @@ val saveFile = File("saveData.json")
 val eventDir = File("events")
 
 val joinedGuilds = mutableMapOf<Guild, GuildInfo>()
-val events = PriorityQueue<UserEvent>{ue1, ue2 -> ue1.startingTime.compareTo(ue2.startingTime)}
+val events = TreeSet<UserEvent>{ue1, ue2 -> ue1.startingTime.compareTo(ue2.startingTime)}
 val eventThread = EventThread()
 val eventLock = Any()
 
@@ -114,9 +114,9 @@ class UtilityListener: ListenerAdapter()
                 val title = eventData.getString("title")
                 val details = eventData.getString("details")
     
-                val textChannel = event.jda.getTextChannelById(eventData.getString("channelId"))
-                val message = textChannel?.retrieveMessageById(eventData.getString("messageId"))?.complete()
-                val pingMessage = eventData.getStringOrNull("pingMessageId")?.let {textChannel?.retrieveMessageById(it)?.complete()}
+                val textChannel = tryOrNull {event.jda.getTextChannelById(eventData.getString("channelId"))}
+                val message = tryOrNull {textChannel?.retrieveMessageById(eventData.getString("messageId"))?.complete()}
+                val pingMessage = eventData.getStringOrNull("pingMessageId")?.let {tryOrNull {textChannel?.retrieveMessageById(it)?.complete()}}
                 
                 if(start + duration <= LocalDateTime.now()) {
                     println("Event has already ended.")
@@ -131,7 +131,7 @@ class UtilityListener: ListenerAdapter()
                             role?.delete()?.queue()
                         }
                     }
-                    else {
+                    else { // event repeats AND at least one of textChannel and message is not null
                         println("Updating event with new start date.")
                         var newStart = start
                         when(repeating) {
@@ -154,7 +154,8 @@ class UtilityListener: ListenerAdapter()
                             }
                         }
                         
-                        val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, newStart, duration, repeating, uuid)).complete()
+                        // If message is null, textChannel is not null
+                        val messageToUse = message ?: textChannel!!.sendMessage(UserEvent.createEmbed(title, details, newStart, duration, repeating, uuid)).complete()
                         val userEvent = UserEvent(messageToUse, newStart, duration, repeating, title, details, uuid, null)
                         userEvent.saveEvent()
                         userEvent.updateEmbed()
@@ -171,11 +172,12 @@ class UtilityListener: ListenerAdapter()
                         role?.delete()?.queue()
                     }
                 }
-                else {
+                else { // at least one of message and textChannel is not null
                     if(message == null)
                         println("Failed to retrieve message, recreating message.")
                     
-                    val messageToUse = message ?: textChannel.sendMessage(UserEvent.createEmbed(title, details, start, duration, repeating, uuid)).complete()
+                    // if message is null, textChannel is not null.
+                    val messageToUse = message ?: textChannel!!.sendMessage(UserEvent.createEmbed(title, details, start, duration, repeating, uuid)).complete()
                     val userEvent = if(start > LocalDateTime.now()) {
                         // if the event was manually rescheduled such that it hasn't started yet, delete the ping message
                         pingMessage?.delete()?.queue()

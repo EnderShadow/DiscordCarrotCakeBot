@@ -12,10 +12,10 @@ class EventThread: Thread("discord-user-event-thread") {
         while(true) {
             var sleep = true
             synchronized(eventLock) {
-                val event: UserEvent? = events.peek()
+                val event: UserEvent? = events.firstOrNull()
                 if(event != null && event.startingTime <= LocalDateTime.now()) {
                     // remove top item
-                    events.poll()
+                    events.pollFirst()
                     RunningEventThread(event).start()
                     sleep = false
                 }
@@ -65,24 +65,28 @@ private class RunningEventThread(private val userEvent: UserEvent): Thread("even
             RecurringType.DAILY -> {
                 while(userEvent.startingTime < LocalDateTime.now())
                     userEvent.startingTime = userEvent.startingTime.plusDays(1)
+                userEvent.pingMessage = null
                 userEvent.saveEvent()
                 userEvent.updateEmbed()
             }
             RecurringType.WEEKLY -> {
                 while(userEvent.startingTime < LocalDateTime.now())
                     userEvent.startingTime = userEvent.startingTime.plusWeeks(1)
+                userEvent.pingMessage = null
                 userEvent.saveEvent()
                 userEvent.updateEmbed()
             }
             RecurringType.MONTHLY -> {
                 while(userEvent.startingTime < LocalDateTime.now())
                     userEvent.startingTime = userEvent.startingTime.plusMonths(1)
+                userEvent.pingMessage = null
                 userEvent.saveEvent()
                 userEvent.updateEmbed()
             }
             RecurringType.YEARLY -> {
                 while(userEvent.startingTime < LocalDateTime.now())
                     userEvent.startingTime = userEvent.startingTime.plusYears(1)
+                userEvent.pingMessage = null
                 userEvent.saveEvent()
                 userEvent.updateEmbed()
             }

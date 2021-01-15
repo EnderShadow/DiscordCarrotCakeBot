@@ -403,6 +403,8 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             synchronized(eventLock) {
                 val event = events.firstOrNull {it.uuid == uuid}
                 if(event != null) {
+                    events.remove(event)
+                    
                     if(newTitle != null)
                         event.title = newTitle
                     
@@ -428,6 +430,8 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
                         event.updateEmbed()
                         event.saveEvent()
                     }
+                    
+                    events.add(event)
             
                     sourceMessage.channel.sendMessage("The event with uuid $uuid has been updated").queue()
                 }

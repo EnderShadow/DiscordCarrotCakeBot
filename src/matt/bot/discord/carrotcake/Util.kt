@@ -168,3 +168,12 @@ fun splitAt2000(text: String): List<String>
     else
         listOf(text.substring(0, splitIndex)) + splitAt2000(text.substring(splitIndex))
 }
+
+inline fun <reified T> tryOrNull(producer: () -> T?): T? {
+    return try {
+        producer()
+    }
+    catch(_: Exception) {
+        null
+    }
+}
