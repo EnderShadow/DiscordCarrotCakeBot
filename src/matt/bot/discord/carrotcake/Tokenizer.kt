@@ -159,6 +159,8 @@ class Tokenizer(text: String): Iterator<Token>
         }
         throw NoSuchElementException()
     }
+    
+    fun nextOrNull(): Token? = if(hasNext()) next() else null
 }
 
 data class Token(val tokenType: TokenType, val tokenValue: String, val rawValue: String = tokenValue)
